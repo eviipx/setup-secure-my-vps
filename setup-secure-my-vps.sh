@@ -39,8 +39,7 @@ welcome_screen() {
 - System Update & Optimization\n
 - Security Configuration\n
 - User & SSH Setup\n
-- Optional Tools & Services\n\n
-Ready to start the configuration?" 20 75
+- Optional Tools & Services\n" 20 75
 }
 
 continue_prompt() {
