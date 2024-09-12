@@ -197,8 +197,13 @@ install_fail2ban() {
     sudo systemctl enable fail2ban
     sudo systemctl start fail2ban
 
-    # Use safer method to capture Fail2Ban settings
-    fail2ban_details=$(grep -E 'bantime|findtime|maxretry|ignoreip' /etc/fail2ban/jail.conf | tr -d "'" | tr '\n' ' ')
+    # Extract relevant Fail2Ban settings
+    bantime=$(grep -E '^bantime' /etc/fail2ban/jail.conf | head -n 1 | tr -d "'")
+    findtime=$(grep -E '^findtime' /etc/fail2ban/jail.conf | head -n 1 | tr -d "'")
+    maxretry=$(grep -E '^maxretry' /etc/fail2ban/jail.conf | head -n 1 | tr -d "'")
+    ignoreip=$(grep -E '^ignoreip' /etc/fail2ban/jail.conf | head -n 1 | tr -d "'")
+
+    fail2ban_details="bantime = $bantime, findtime = $findtime, maxretry = $maxretry, ignoreip = $ignoreip"
     fail2ban_installed="Yes (Settings: $fail2ban_details)"
     msg_ok "Fail2Ban installed and configured"
   else
@@ -299,10 +304,21 @@ install_optional_tools
 
 # Step 12: Automatic Security Updates (Optional)
 setup_automatic_updates() {
-  if (whiptail --title "Automatic Security Updates" --yesno "Do you want to enable automatic security updates?" 10 60); then
+  if (whiptail --title "Configuring Unattended-Upgrades" --yesno "Enable automatic download and installation of stable security updates?" 10 60); then
     sudo apt install unattended-upgrades -y
     sudo dpkg-reconfigure --priority=low unattended-upgrades
-    auto_updates_details=$(grep -E 'Unattended-Upgrade::Mail|Unattended-Upgrade::Automatic-Reboot' /etc/apt/apt.conf.d/50unattended-upgrades)
+
+    # Extract relevant Unattended-Upgrade settings
+    auto_reboot=$(grep -E '^Unattended-Upgrade::Automatic-Reboot' /etc/apt/apt.conf.d/50unattended-upgrades | head -n 1 | tr -d "'")
+
+    # Extract update frequency from 10periodic
+    update_frequency=$(grep -E 'APT::Periodic::Update-Package-Lists' /etc/apt/apt.conf.d/10periodic | cut -d '"' -f2)
+    upgrade_frequency=$(grep -E 'APT::Periodic::Unattended-Upgrade' /etc/apt/apt.conf.d/10periodic | cut -d '"' -f2)
+
+    # Extract type of updates from 50unattended-upgrades
+    allowed_origins=$(grep -E 'Unattended-Upgrade::Allowed-Origins' /etc/apt/apt.conf.d/50unattended-upgrades | grep -oE '".*"' | tr -d '"')
+
+    auto_updates_details="Automatic-Reboot = $auto_reboot, Check frequency: Update = $update_frequency days, Upgrade = $upgrade_frequency days, Allowed updates: $allowed_origins"
     automatic_updates_enabled="Yes (Settings: $auto_updates_details)"
     msg_ok "Automatic security updates configured"
   else
