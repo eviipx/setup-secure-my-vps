@@ -1,8 +1,3 @@
-Apologies for the incomplete code snippet. Let me complete it for you now:
-
-### **Completed Script with Custom Header and Fixes:**
-
-```bash
 #!/usr/bin/env bash
 
 # VPS Quick Setup Script
