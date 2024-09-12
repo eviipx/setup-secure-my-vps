@@ -34,26 +34,18 @@ EOF
 
 # Welcome Screen
 welcome_screen() {
-  whiptail --title "Welcome to VPS Quick Setup Script" --msgbox "This script will help you quickly set up your VPS with the following steps:\n\n
-1. Set Hostname (Optional)\n
-2. Set Time Zone\n
-3. Update and Upgrade OS and Applications\n
-4. Install and Configure Netbird VPN (Optional)\n
-5. Create Non-Root User with Sudo Access (Optional)\n
-6. Configure SSH for Key-based Login (Optional)\n
-7. Install and Configure Fail2Ban (Optional)\n
-8. Setup and Configure UFW (Optional)\n
-9. Install Webmin (Optional)\n
-10. Install Optional Tools (Optional)\n
-11. Enable Automatic Security Updates (Optional)\n\n
-Do you want to continue?" 20 70
+  whiptail --title "🚀 VPS Quick Setup Script 🚀" --msgbox "Welcome to the VPS Quick Setup Script!\n\n
+🔧 This script will guide you through the essential setup of your VPS.\n\n
+✨ Key Highlights ✨\n
+- System Update & Optimization
+- Security Configuration
+- User & SSH Setup
+- Optional Tools & Services\n\n
+Ready to start the configuration?" 15 60
 }
 
-# Reduce the size of the dialog to 20 rows and 70 columns
-# This ensures compatibility with smaller terminals
-
 continue_prompt() {
-  if (whiptail --title "Continue?" --yesno "Do you want to continue with the script?" 10 60); then
+  if (whiptail --title "Proceed with Setup?" --yesno "Do you want to proceed with the setup?" 10 60); then
     echo "Starting the setup process..."
   else
     echo "Exiting the setup. No changes have been made."
