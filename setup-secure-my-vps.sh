@@ -34,14 +34,13 @@ EOF
 
 # Welcome Screen
 welcome_screen() {
-  whiptail --title "🚀 VPS Quick Setup Script 🚀" --msgbox "Welcome to the VPS Quick Setup Script!\n\n
-🔧 This script will guide you through the essential setup of your VPS.\n\n
+  whiptail --title "🚀 Setup & Secure My VPS Script 🚀" --msgbox "Welcome! This script will guide you through the essential setup and security configuration of your VPS.\n\n
 ✨ Key Highlights ✨\n
 - System Update & Optimization\n
 - Security Configuration\n
 - User & SSH Setup\n
 - Optional Tools & Services\n\n
-Ready to start the configuration?" 20 70
+Ready to start the configuration?" 18 70
 }
 
 continue_prompt() {
