@@ -1,3 +1,8 @@
+Apologies for the incomplete code snippet. Let me complete it for you now:
+
+### **Completed Script with Custom Header and Fixes:**
+
+```bash
 #!/usr/bin/env bash
 
 # VPS Quick Setup Script
@@ -25,10 +30,10 @@ header_info() {
   cat <<"EOF"
    ____    __              ____      ____                                    _   _____  ______
   / __/__ / /___ _____    / __/___  / __/__ ______ _________   __ _  __ __  | | / / _ \/ __/ /
- _\ \/ -_) __/ // / _ \   > _/_ _/ _\ \/ -_) __/ // / __/ -_) /  ' \/ // /  | |/ / ___/\ \/_/ 
-/___/\__/\__/\_,_/ .__/  |_____/  /___/\__/\__/\_,_/_/  \__/ /_/_/_/\_, /   |___/_/  /___(_)  
-                /_/                                                /___/                      
- 
+ _\ \/ -_) __/ // / _ \   > _/_ _/ _\ \/ -_) __/ // / __/ -_) /  ' \/ // /  | |/ / ___/\ \/_/
+/___/\__/\__/\_,_/ .__/  |_____/  /___/\__/\__/\_,_/_/  \__/ /_/_/_/\_, /   |___/_/  /___(_)
+                /_/                                                /___/
+
 EOF
 }
 
@@ -175,4 +180,98 @@ setup_ssh_key
 # Step 8: Install and Configure Fail2Ban (Optional)
 install_fail2ban() {
   if (whiptail --title "Fail2Ban" --yesno "Do you want to install and configure Fail2Ban?" 10 60); then
-    msg_info "
+    msg_info "Installing Fail2Ban"
+    sudo apt install fail2ban -y
+    sudo systemctl enable fail2ban
+    sudo systemctl start fail2ban
+    msg_ok "Fail2Ban installed with default settings"
+    echo "Default Fail2Ban settings:"
+    echo "  bantime = 10m"
+    echo "  findtime = 10m"
+    echo "  maxretry = 5"
+    echo "  ignoreip = 127.0.0.1/8 ::1"
+  else
+    msg_error "Skipped Fail2Ban installation"
+  fi
+}
+
+install_fail2ban
+
+# Step 9: Setup and Configure UFW (Optional)
+install_ufw() {
+  if (whiptail --title "Uncomplicated Firewall (UFW)" --yesno "Do you want to install and configure UFW?" 10 60); then
+    msg_info "Installing UFW"
+    sudo apt install ufw -y
+    sudo ufw allow OpenSSH
+    sudo ufw allow 80/tcp
+    sudo ufw allow 443/tcp
+
+    # Ask for custom firewall rules
+    while (whiptail --title "Custom UFW Rule" --yesno "Do you want to add a custom UFW rule?" 10 60); do
+      port=$(whiptail --inputbox "Enter the port number:" 10 60 3>&1 1>&2 2>&3)
+      protocol=$(whiptail --menu "Select protocol:" 10 60 2 "TCP" "" "UDP" "" 3>&1 1>&2 2>&3)
+      ip_range=$(whiptail --inputbox "Allow traffic from (e.g., 0.0.0.0/0 for anywhere, or specific IP range):" 10 60 3>&1 1>&2 2>&3)
+
+      sudo ufw allow from "$ip_range" to any port "$port" proto "$protocol"
+      msg_ok "Custom UFW rule added for port $port ($protocol) from $ip_range"
+    done
+
+    sudo ufw enable
+    msg_ok "UFW installed and configured"
+  else
+    msg_error "Skipped UFW installation"
+  fi
+}
+
+install_ufw
+
+# Step 10: Install Webmin (Optional)
+install_webmin() {
+  if (whiptail --title "Webmin" --yesno "Do you want to install Webmin for web-based server management?" 10 60); then
+    msg_info "Installing Webmin"
+    curl -o setup-repos.sh https://raw.githubusercontent.com/webmin/webmin/master/setup-repos.sh
+    sh setup-repos.sh
+    sudo apt-get install --install-recommends webmin -y
+
+    msg_ok "Webmin installed"
+    echo "You can access Webmin via your browser at https://<server-ip>:10000"
+  else
+    msg_error "Skipped Webmin installation"
+  fi
+}
+
+install_webmin
+
+# Step 11: Install Optional Tools (Optional)
+install_optional_tools() {
+  if (whiptail --title "Optional Tools" --yesno "Do you want to install optional tools (btop, speedtest-cli, fastfetch)?" 10 60); then
+    msg_info "Installing optional tools"
+    sudo apt install btop speedtest-cli -y
+    sudo add-apt-repository ppa:zhangyunchen3371/fastfetch -y
+    sudo apt update
+    sudo apt install fastfetch -y
+    msg_ok "Optional tools installed"
+  else
+    msg_error "Skipped optional tools installation"
+  fi
+}
+
+install_optional_tools
+
+# Step 12: Automatic Security Updates (Optional)
+setup_automatic_updates() {
+  if (whiptail --title "Automatic Security Updates" --yesno "Do you want to enable automatic security updates?" 10 60); then
+    msg_info "Installing unattended-upgrades for automatic security updates"
+    sudo apt install unattended-upgrades -y
+    sudo dpkg-reconfigure --priority=low unattended-upgrades
+
+    msg_ok "Automatic security updates configured"
+    echo "Security updates will be checked daily, but no automatic reboot."
+  else
+    msg_error "Skipped automatic security updates"
+  fi
+}
+
+setup_automatic_updates
+
+msg_ok "VPS Quick Setup is complete!"
