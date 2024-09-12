@@ -218,21 +218,35 @@ create_user
 setup_ssh_key
 install_fail2ban
 
-# Step 10: Install and Configure UFW (Optional)
+# Step 9: Install and Configure UFW (Optional)
 install_ufw() {
+  # Step 9.1: Ask if UFW should be installed
   if (whiptail --title "Uncomplicated Firewall (UFW)" --yesno "Do you want to install and configure UFW?" 10 60); then
+    msg_info "Installing UFW"
     sudo apt install ufw -y
+
+    # Step 9.2: Ask if the firewall should be enabled with default settings
     if (whiptail --title "Enable UFW" --yesno "Do you want to enable UFW and apply default settings?\n(Default: Allow OpenSSH, HTTP, and HTTPS)" 10 60); then
       sudo ufw allow OpenSSH
       sudo ufw allow 80/tcp
       sudo ufw allow 443/tcp
       sudo ufw enable
       ufw_rules=$(sudo ufw status)
-      ufw_installed="Yes (Rules: $ufw_rules)"
       msg_ok "UFW enabled with default settings (OpenSSH, HTTP, HTTPS)"
     else
       msg_error "UFW was installed but not enabled"
     fi
+
+    # Step 9.3: Ask for custom firewall rules
+    while (whiptail --title "Custom UFW Rule" --yesno "Do you want to add a custom UFW rule?" 10 60); do
+      port=$(whiptail --inputbox "Enter the port number:" 10 60 3>&1 1>&2 2>&3)
+      protocol=$(whiptail --menu "Select protocol:" 10 60 2 "TCP" "" "UDP" "" 3>&1 1>&2 2>&3)
+      ip_range=$(whiptail --inputbox "Allow traffic from (e.g., 0.0.0.0/0 for anywhere, or specific IP range):" 10 60 3>&1 1>&2 2>&3)
+
+      sudo ufw allow from "$ip_range" to any port "$port" proto "$protocol"
+      msg_ok "Custom UFW rule added for port $port ($protocol) from $ip_range"
+    done
+
   else
     msg_error "Skipped UFW installation"
   fi
