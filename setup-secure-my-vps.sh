@@ -239,7 +239,7 @@ install_optional_tools() {
     sudo apt install software-properties-common -y
 
     sudo apt install btop speedtest-cli -y
-    sudo add-apt-repository ppa:zhangyunchen3371/fastfetch -y
+    sudo add-apt-repository ppa:zhangsongcui3371/fastfetch -y
     sudo apt update
     sudo apt install fastfetch -y
     msg_ok "Optional tools installed"
