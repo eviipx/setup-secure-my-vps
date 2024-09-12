@@ -46,7 +46,12 @@ welcome_screen() {
 9. Install Webmin (Optional)\n
 10. Install Optional Tools (Optional)\n
 11. Enable Automatic Security Updates (Optional)\n\n
-Do you want to continue?" 20 78
+Do you want to continue?" 25 80; then
+    echo "Starting the setup process..."
+else
+    echo "Exiting the setup. No changes have been made."
+    exit 0
+fi
 
   if (whiptail --title "Continue?" --yesno "Do you want to continue with the script?" 10 60); then
     echo "Starting the setup process..."
