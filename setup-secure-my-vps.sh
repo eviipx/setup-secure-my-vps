@@ -10,10 +10,23 @@ RD=$(echo "\\033[01;31m")
 YW=$(echo "\\033[33m")
 GN=$(echo "\\033[1;92m")
 CL=$(echo "\\033[m")
-BFR="\\\\r\\\\033[K"
-HOLD="-"
 CM="${GN}✓${CL}"
 CROSS="${RD}✗${CL}"
+
+# Function to display success messages
+msg_ok() {
+  echo -e "${CM} $1"
+}
+
+# Function to display info messages
+msg_info() {
+  echo -e "${YW}ℹ️  $1${CL}"
+}
+
+# Function to display error messages
+msg_error() {
+  echo -e "${CROSS} $1"
+}
 
 # Ensure script exits on error
 set -euo pipefail
@@ -53,15 +66,17 @@ continue_prompt() {
 
 check_root() {
   if [[ "$EUID" -ne 0 ]]; then
-    echo -e "${RD}This script must be run as root${CL}"
+    msg_error "This script must be run as root"
     exit 1
   fi
 }
 
+# Main script execution starts here
 check_root
 header_info
 welcome_screen
 continue_prompt
+set_hostname
 
 # Step 1: Set Hostname (Optional)
 set_hostname() {
@@ -73,8 +88,6 @@ set_hostname() {
     msg_error "Skipped setting hostname"
   fi
 }
-
-set_hostname
 
 # Step 2: Set Time Zone (Always)
 set_timezone() {
