@@ -130,7 +130,7 @@ install_netbird() {
 
 # Step 6: Setup Non-Root User with Sudo Access (Optional)
 create_user() {
-  if (whiptail --title "Non-Root User" --yesno "Do you want to create a non-root user with sudo access? (Recommended for disabling SSH root login)" 10 60); then
+  if (whiptail --title "Non-Root User" --yesno "Do you want to create a non-root user with sudo access? (Recommended to be able to disable root login for SSH)" 10 60); then
     username=$(whiptail --inputbox "Enter username for the new user:" 10 60 3>&1 1>&2 2>&3)
     msg_info "Creating user $username"
     sudo adduser "$username"
