@@ -71,13 +71,6 @@ check_root() {
   fi
 }
 
-# Main script execution starts here
-check_root
-header_info
-welcome_screen
-continue_prompt
-set_hostname
-
 # Step 1: Set Hostname (Optional)
 set_hostname() {
   if (whiptail --title "Set Hostname" --yesno "Do you want to set the hostname?" 10 60); then
@@ -96,8 +89,6 @@ set_timezone() {
   msg_ok "Time zone set"
 }
 
-set_timezone
-
 # Step 3: Create or Change Password for Root (Optional)
 set_root_password() {
   if (whiptail --title "Root Password" --yesno "Do you want to create or change the root password?" 10 60); then
@@ -109,8 +100,6 @@ set_root_password() {
   fi
 }
 
-set_root_password
-
 # Step 4: Update OS and Apps (Always with confirmation)
 update_system() {
   whiptail --title "Update OS and Apps" --msgbox "Click 'Continue' to update and upgrade the system." 8 58
@@ -118,8 +107,6 @@ update_system() {
   sudo apt update && sudo apt upgrade -y
   msg_ok "System updated"
 }
-
-update_system
 
 # Step 5: Install and Configure Netbird VPN (Optional)
 install_netbird() {
@@ -134,8 +121,6 @@ install_netbird() {
   fi
 }
 
-install_netbird
-
 # Step 6: Setup Non-Root User with Sudo Access (Optional)
 create_user() {
   if (whiptail --title "Non-Root User" --yesno "Do you want to create a non-root user with sudo access? (Recommended for disabling SSH root login)" 10 60); then
@@ -149,17 +134,10 @@ create_user() {
   fi
 }
 
-create_user
-
 # Step 7: Enable SSH Key for Passwordless Login and Enforce Key-Based Authentication (Optional)
 setup_ssh_key() {
   if (whiptail --title "SSH Key Login" --yesno "Do you want to enable SSH key for passwordless login and enforce key-based authentication?" 10 60); then
     echo "Please provide your public SSH key for passwordless login."
-    echo "Tip: On your local machine (Mac/Linux/WSL), you can retrieve your public key using:"
-    echo "  cat ~/.ssh/id_rsa.pub  # For RSA key"
-    echo "  cat ~/.ssh/id_ed25519.pub  # For Ed25519 key"
-    echo "Example output:"
-    echo "  ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQE... user@hostname"
     ssh_key=$(whiptail --inputbox "Paste your public SSH key here:" 10 60 3>&1 1>&2 2>&3)
     mkdir -p ~/.ssh
     echo "$ssh_key" >> ~/.ssh/authorized_keys
@@ -179,8 +157,6 @@ setup_ssh_key() {
   fi
 }
 
-setup_ssh_key
-
 # Step 8: Install and Configure Fail2Ban (Optional)
 install_fail2ban() {
   if (whiptail --title "Fail2Ban" --yesno "Do you want to install and configure Fail2Ban?" 10 60); then
@@ -189,16 +165,23 @@ install_fail2ban() {
     sudo systemctl enable fail2ban
     sudo systemctl start fail2ban
     msg_ok "Fail2Ban installed with default settings"
-    echo "Default Fail2Ban settings:"
-    echo "  bantime = 10m"
-    echo "  findtime = 10m"
-    echo "  maxretry = 5"
-    echo "  ignoreip = 127.0.0.1/8 ::1"
   else
     msg_error "Skipped Fail2Ban installation"
   fi
 }
 
+# Main script execution starts here
+check_root
+header_info
+welcome_screen
+continue_prompt
+set_hostname
+set_timezone
+set_root_password
+update_system
+install_netbird
+create_user
+setup_ssh_key
 install_fail2ban
 
 # Step 9: Setup and Configure UFW (Optional)
