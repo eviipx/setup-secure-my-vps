@@ -46,9 +46,13 @@ welcome_screen() {
 9. Install Webmin (Optional)\n
 10. Install Optional Tools (Optional)\n
 11. Enable Automatic Security Updates (Optional)\n\n
-Do you want to continue?" 25 80
+Do you want to continue?" 20 70
+}
 
-  # Prompt user to continue with Yes/No choice
+# Reduce the size of the dialog to 20 rows and 70 columns
+# This ensures compatibility with smaller terminals
+
+continue_prompt() {
   if (whiptail --title "Continue?" --yesno "Do you want to continue with the script?" 10 60); then
     echo "Starting the setup process..."
   else
@@ -67,6 +71,7 @@ check_root() {
 check_root
 header_info
 welcome_screen
+continue_prompt
 
 # Step 1: Set Hostname (Optional)
 set_hostname() {
