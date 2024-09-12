@@ -71,11 +71,31 @@ check_root() {
   fi
 }
 
+# Initialize tracking variables
+hostname_set="No"
+timezone_set="No"
+root_password_set="No"
+system_updated="No"
+netbird_installed="No"
+non_root_user_created="No"
+ssh_key_configured="No"
+ssh_details="No SSH configuration made"
+fail2ban_installed="No"
+fail2ban_details="No Fail2Ban configuration"
+ufw_installed="No"
+ufw_rules="No UFW rules applied"
+webmin_installed="No"
+webmin_url="Not installed"
+optional_tools_installed="No"
+automatic_updates_enabled="No"
+auto_updates_details="No automatic updates configured"
+
 # Step 1: Set Hostname (Optional)
 set_hostname() {
   if (whiptail --title "Set Hostname" --yesno "Do you want to set the hostname?" 10 60); then
     hostname=$(whiptail --inputbox "Enter hostname in the format:\n\n[service].[type].[vendor].[location]\n\nExample: VPS.CTX42.HZR.FI or WEB.CX22.HZR.US" 12 70 3>&1 1>&2 2>&3)
     sudo hostnamectl set-hostname "$hostname"
+    hostname_set="Yes (Hostname: $hostname)"
     msg_ok "Hostname set to $hostname"
   else
     msg_error "Skipped setting hostname"
@@ -85,8 +105,9 @@ set_hostname() {
 # Step 2: Set Time Zone (Optional)
 set_timezone() {
   if (whiptail --title "Set Time Zone" --yesno "Do you want to set the time zone?" 10 60); then
-    msg_info "Setting time zone"
     sudo dpkg-reconfigure tzdata
+    timezone=$(timedatectl | grep "Time zone" | awk '{print $3}')
+    timezone_set="Yes (Time zone: $timezone)"
     msg_ok "Time zone set"
   else
     msg_error "Skipped setting time zone"
@@ -141,24 +162,26 @@ create_user() {
   fi
 }
 
-# Step 7: Enable SSH Key for Passwordless Login and Enforce Key-Based Authentication (Optional)
+# Step 7: SSH Key for Passwordless Login and Enforce Key-Based Authentication (Optional)
 setup_ssh_key() {
   if (whiptail --title "SSH Key Login" --yesno "Do you want to enable SSH key for passwordless login and enforce key-based authentication?" 10 60); then
-    whiptail --msgbox "Please provide your public SSH key for passwordless login.\n\nTip: If you're on a Mac or Linux machine, you can view your public key using:\n  cat ~/.ssh/id_rsa.pub  # For RSA key\n  cat ~/.ssh/id_ed25519.pub  # For Ed25519 key\n\nExample output (RSA key):\n  ssh-rsa AAAAB3Nza... rest_of_key ... user@hostname\n\nCopy the entire output and paste it in the next prompt." 15 70
     ssh_key=$(whiptail --inputbox "Paste your public SSH key here:" 10 60 3>&1 1>&2 2>&3)
-    
     mkdir -p ~/.ssh
     echo "$ssh_key" >> ~/.ssh/authorized_keys
     chmod 600 ~/.ssh/authorized_keys
 
     msg_info "Configuring SSH"
-    sudo sed -i 's/PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd
     sudo sed -i 's/PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
     sudo sed -i 's/PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
     sudo sed -i 's/PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
     sudo systemctl restart sshd
+
+    ssh_details=$(sudo sshd -T | grep -E 'permitrootlogin|pubkeyauthentication|passwordauthentication')
+    ssh_key_configured="Yes (SSH settings: $ssh_details)"
     msg_ok "SSH key added and root login disabled"
   else
+    ssh_details=$(sudo sshd -T | grep -E 'permitrootlogin|pubkeyauthentication|passwordauthentication')
+    ssh_key_configured="No"
     msg_info "Disabling root login but keeping password authentication for SSH"
     sudo sed -i 's/PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
     sudo sed -i 's/PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
@@ -170,11 +193,12 @@ setup_ssh_key() {
 # Step 8: Install and Configure Fail2Ban (Optional)
 install_fail2ban() {
   if (whiptail --title "Fail2Ban" --yesno "Do you want to install and configure Fail2Ban?" 10 60); then
-    msg_info "Installing Fail2Ban"
     sudo apt install fail2ban -y
     sudo systemctl enable fail2ban
     sudo systemctl start fail2ban
-    msg_ok "Fail2Ban installed with default settings"
+    fail2ban_details=$(grep -E 'bantime|findtime|maxretry|ignoreip' /etc/fail2ban/jail.conf | xargs)
+    fail2ban_installed="Yes (Settings: $fail2ban_details)"
+    msg_ok "Fail2Ban installed and configured"
   else
     msg_error "Skipped Fail2Ban installation"
   fi
@@ -194,34 +218,21 @@ create_user
 setup_ssh_key
 install_fail2ban
 
-# Step 9: Install and Configure UFW (Optional)
+# Step 10: Install and Configure UFW (Optional)
 install_ufw() {
-  # Step 9.1: Ask if UFW should be installed
   if (whiptail --title "Uncomplicated Firewall (UFW)" --yesno "Do you want to install and configure UFW?" 10 60); then
-    msg_info "Installing UFW"
     sudo apt install ufw -y
-
-    # Step 9.2: Ask if the firewall should be enabled with default settings
     if (whiptail --title "Enable UFW" --yesno "Do you want to enable UFW and apply default settings?\n(Default: Allow OpenSSH, HTTP, and HTTPS)" 10 60); then
       sudo ufw allow OpenSSH
       sudo ufw allow 80/tcp
       sudo ufw allow 443/tcp
       sudo ufw enable
+      ufw_rules=$(sudo ufw status)
+      ufw_installed="Yes (Rules: $ufw_rules)"
       msg_ok "UFW enabled with default settings (OpenSSH, HTTP, HTTPS)"
     else
       msg_error "UFW was installed but not enabled"
     fi
-
-    # Step 9.3: Ask for custom firewall rules
-    while (whiptail --title "Custom UFW Rule" --yesno "Do you want to add a custom UFW rule?" 10 60); do
-      port=$(whiptail --inputbox "Enter the port number:" 10 60 3>&1 1>&2 2>&3)
-      protocol=$(whiptail --menu "Select protocol:" 10 60 2 "TCP" "" "UDP" "" 3>&1 1>&2 2>&3)
-      ip_range=$(whiptail --inputbox "Allow traffic from (e.g., 0.0.0.0/0 for anywhere, or specific IP range):" 10 60 3>&1 1>&2 2>&3)
-
-      sudo ufw allow from "$ip_range" to any port "$port" proto "$protocol"
-      msg_ok "Custom UFW rule added for port $port ($protocol) from $ip_range"
-    done
-
   else
     msg_error "Skipped UFW installation"
   fi
@@ -273,12 +284,11 @@ install_optional_tools
 # Step 12: Automatic Security Updates (Optional)
 setup_automatic_updates() {
   if (whiptail --title "Automatic Security Updates" --yesno "Do you want to enable automatic security updates?" 10 60); then
-    msg_info "Installing unattended-upgrades for automatic security updates"
     sudo apt install unattended-upgrades -y
     sudo dpkg-reconfigure --priority=low unattended-upgrades
-
+    auto_updates_details=$(grep -E 'Unattended-Upgrade::Mail|Unattended-Upgrade::Automatic-Reboot' /etc/apt/apt.conf.d/50unattended-upgrades)
+    automatic_updates_enabled="Yes (Settings: $auto_updates_details)"
     msg_ok "Automatic security updates configured"
-    echo "Security updates will be checked daily, but no automatic reboot."
   else
     msg_error "Skipped automatic security updates"
   fi
@@ -286,4 +296,27 @@ setup_automatic_updates() {
 
 setup_automatic_updates
 
+# Final Summary
+display_summary() {
+  echo ""
+  echo "======================="
+  echo "VPS Setup Summary"
+  echo "======================="
+  echo "Hostname set: $hostname_set"
+  echo "Time zone set: $timezone_set"
+  echo "Root password set: $root_password_set"
+  echo "System updated: $system_updated"
+  echo "Netbird VPN installed: $netbird_installed"
+  echo "Non-root user created: $non_root_user_created"
+  echo "SSH key configured: $ssh_key_configured"
+  echo "Fail2Ban installed: $fail2ban_installed"
+  echo "UFW installed: $ufw_installed"
+  echo "Webmin installed: $webmin_installed (URL: $webmin_url)"
+  echo "Optional tools installed: $optional_tools_installed"
+  echo "Automatic security updates enabled: $automatic_updates_enabled"
+  echo ""
+}
+
+# Call the summary function at the end of the script
 msg_ok "VPS Quick Setup is complete!"
+display_summary
