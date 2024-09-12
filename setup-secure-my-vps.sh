@@ -196,8 +196,9 @@ install_fail2ban() {
     sudo apt install fail2ban -y
     sudo systemctl enable fail2ban
     sudo systemctl start fail2ban
-    # Fix for the xargs error: capture Fail2Ban settings directly without xargs
-    fail2ban_details=$(grep -E 'bantime|findtime|maxretry|ignoreip' /etc/fail2ban/jail.conf | sed "s/'//g")
+
+    # Use safer method to capture Fail2Ban settings
+    fail2ban_details=$(grep -E 'bantime|findtime|maxretry|ignoreip' /etc/fail2ban/jail.conf | tr -d "'" | tr '\n' ' ')
     fail2ban_installed="Yes (Settings: $fail2ban_details)"
     msg_ok "Fail2Ban installed and configured"
   else
