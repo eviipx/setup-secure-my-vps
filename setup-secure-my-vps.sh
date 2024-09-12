@@ -233,6 +233,11 @@ install_webmin
 install_optional_tools() {
   if (whiptail --title "Optional Tools" --yesno "Do you want to install optional tools (btop, speedtest-cli, fastfetch)?" 10 60); then
     msg_info "Installing optional tools"
+
+    # Ensure software-properties-common is installed
+    msg_info "Installing software-properties-common"
+    sudo apt install software-properties-common -y
+
     sudo apt install btop speedtest-cli -y
     sudo add-apt-repository ppa:zhangyunchen3371/fastfetch -y
     sudo apt update
