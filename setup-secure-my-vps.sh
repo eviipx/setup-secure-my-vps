@@ -46,7 +46,7 @@ welcome_screen() {
 9. Install Webmin (Optional)\n
 10. Install Optional Tools (Optional)\n
 11. Enable Automatic Security Updates (Optional)\n\n
-Do you want to continue?" 20 100
+Do you want to continue?" 20 70
 }
 
 # Reduce the size of the dialog to 20 rows and 70 columns
