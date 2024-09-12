@@ -37,11 +37,11 @@ welcome_screen() {
   whiptail --title "🚀 VPS Quick Setup Script 🚀" --msgbox "Welcome to the VPS Quick Setup Script!\n\n
 🔧 This script will guide you through the essential setup of your VPS.\n\n
 ✨ Key Highlights ✨\n
-- System Update & Optimization
-- Security Configuration
-- User & SSH Setup
+- System Update & Optimization\n
+- Security Configuration\n
+- User & SSH Setup\n
 - Optional Tools & Services\n\n
-Ready to start the configuration?" 15 60
+Ready to start the configuration?" 20 70
 }
 
 continue_prompt() {
