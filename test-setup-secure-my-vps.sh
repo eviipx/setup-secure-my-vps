@@ -143,7 +143,7 @@ setup_ssh_key() {
 
 # Step 8: Fail2Ban Installation (Optional)
 install_fail2ban() {
-  if whiptail --title "Fail2Ban Installation" --yesno "Do you want to install and configure Fail2Ban?" 10 60 ; then
+  if whiptail --title "Fail2Ban Installation" --yesno "Do you want to install and configure Fail2Ban?" 10 60; then
     msg_info "Installing Fail2Ban"
     apt install fail2ban -y
     systemctl enable fail2ban
@@ -152,12 +152,30 @@ install_fail2ban() {
 
     [[ -f /etc/fail2ban/jail.local ]] || cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
 
+    # Remove existing settings first to avoid duplicates
     sed -i '/^bantime/d' /etc/fail2ban/jail.local
     sed -i '/^findtime/d' /etc/fail2ban/jail.local
     sed -i '/^maxretry/d' /etc/fail2ban/jail.local
-    printf "bantime = 600\nfindtime = 600\nmaxretry = 5\nignoreip = 127.0.0.1/8 $netbird_ip_range\n" >> /etc/fail2ban/jail.local
+    sed -i '/^ignoreip/d' /etc/fail2ban/jail.local
 
-    msg_ok "Fail2Ban configured with default values"
+    # Add default settings
+    cat <<EOF >> /etc/fail2ban/jail.local
+bantime = 600
+findtime = 600
+maxretry = 5
+EOF
+
+    # Only add the Netbird IP range if it's available (i.e., if Netbird was installed)
+    if [[ -n "${netbird_ip_range:-}" ]]; then
+      echo "ignoreip = 127.0.0.1/8 $netbird_ip_range" >> /etc/fail2ban/jail.local
+      msg_ok "Netbird IP range $netbird_ip_range whitelisted in Fail2Ban"
+    else
+      echo "ignoreip = 127.0.0.1/8" >> /etc/fail2ban/jail.local  # Default without Netbird
+      msg_info "No Netbird IP range found, only localhost whitelisted in Fail2Ban"
+    fi
+
+    systemctl restart fail2ban
+    msg_ok "Fail2Ban configuration updated and service restarted"
   else
     msg_info "Skipped Fail2Ban installation"
   fi
