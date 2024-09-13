@@ -144,7 +144,7 @@ install_netbird() {
     curl -fsSL https://pkgs.netbird.io/install.sh | sh
     setup_key=$(whiptail --inputbox "Enter your Netbird setup key (Example: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX)" 10 60 3>&1 1>&2 2>&3)
     sudo netbird up --setup-key "$setup_key"
-    
+
     # Prompt for Netbird IP range
     netbird_ip_range=$(whiptail --inputbox "Enter your Netbird IP range (e.g., 100.92.0.0/16):" 10 60 "100.92.0.0/16" 3>&1 1>&2 2>&3)
     msg_ok "Netbird VPN installed and configured with IP range $netbird_ip_range"
@@ -174,7 +174,7 @@ setup_ssh_key() {
 
     # Prompt for the username to add the SSH key to
     ssh_user=$(whiptail --inputbox "Enter the username for SSH key setup (e.g., the non-root user you created):" 10 60 3>&1 1>&2 2>&3)
-    
+
     # Add SSH key to the specified user's authorized_keys
     sudo -u "$ssh_user" mkdir -p /home/"$ssh_user"/.ssh
     echo "$ssh_key" | sudo -u "$ssh_user" tee /home/"$ssh_user"/.ssh/authorized_keys >/dev/null
@@ -210,14 +210,30 @@ setup_ssh_key() {
 # Step 8: Install and Configure Fail2Ban (Optional)
 install_fail2ban() {
   if (whiptail --title "Fail2Ban" --yesno "Do you want to install and configure Fail2Ban?" 10 60); then
+    # Install Fail2Ban if not already installed
+    msg_info "Installing Fail2Ban"
     sudo apt install fail2ban -y
+
+    # Enable Fail2Ban service
+    msg_info "Enabling and starting Fail2Ban service"
     sudo systemctl enable fail2ban
-    sudo systemctl start fail2ban
+
+    # Check if Fail2Ban service is already running
+    if sudo systemctl is-active --quiet fail2ban; then
+      msg_info "Fail2Ban is already running. Reloading the service to apply changes."
+      sudo systemctl reload fail2ban
+    else
+      sudo systemctl start fail2ban
+    fi
 
     # Create a local jail configuration if it doesn't exist
     if [ ! -f /etc/fail2ban/jail.local ]; then
+      msg_info "Creating /etc/fail2ban/jail.local"
       sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
     fi
+
+    # Ensure proper permissions on jail.local
+    sudo chmod 644 /etc/fail2ban/jail.local
 
     # If Netbird IP range is set, add it to the ignoreip setting
     if [ -n "$netbird_ip_range" ]; then
@@ -228,10 +244,18 @@ install_fail2ban() {
       msg_ok "Netbird IP range $netbird_ip_range added to Fail2Ban ignore list"
     fi
 
-    # Restart Fail2Ban to apply changes
+    # Reload or restart Fail2Ban to apply changes
+    msg_info "Restarting Fail2Ban service to apply configuration changes"
     sudo systemctl restart fail2ban
 
-    # Extract relevant Fail2Ban settings
+    # Verify if Fail2Ban restarted successfully
+    if sudo systemctl is-active --quiet fail2ban; then
+      msg_ok "Fail2Ban restarted successfully"
+    else
+      msg_error "Fail2Ban failed to restart. Please check logs."
+    fi
+
+    # Extract relevant Fail2Ban settings for summary
     bantime=$(grep -E '^bantime' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
     findtime=$(grep -E '^findtime' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
     maxretry=$(grep -E '^maxretry' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
