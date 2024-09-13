@@ -1,6 +1,3 @@
-Got it, here's how that might look as a Bash script following the details provided:
-
-```bash
 #!/bin/bash
 
 # Colors for output
@@ -177,6 +174,3 @@ main() {
 }
 
 main
-```
-
-This script checks if the user runs the script as root, uses `whiptail` for interactive input, and ensures that every step is optional. You can upload the script to a VPS and execute it to automate the server setup.
