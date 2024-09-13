@@ -382,9 +382,18 @@ install_optional_tools
 # Step 12: Automatic Security Updates (Optional)
 setup_automatic_updates() {
   if (whiptail --title "Configuring Unattended-Upgrades" --yesno "Enable automatic download and installation of stable security updates?" 10 60); then
+    msg_info "Installing unattended-upgrades"
     sudo apt install unattended-upgrades -y
 
     msg_info "Configuring unattended-upgrades"
+
+    # Check if the unattended-upgrades package is already installed
+    if dpkg-query -W -f='${Status}' unattended-upgrades 2>/dev/null | grep -q "ok installed"; then
+      msg_ok "unattended-upgrades is already installed"
+    else
+      msg_info "Installing unattended-upgrades"
+      sudo apt install unattended-upgrades -y
+    fi
 
     # Enable automatic updates by creating or modifying /etc/apt/apt.conf.d/20auto-upgrades
     sudo bash -c 'cat > /etc/apt/apt.conf.d/20auto-upgrades <<EOF
@@ -406,6 +415,7 @@ EOF'
     auto_updates_details="Automatic-Reboot = $auto_reboot, Update frequency: $update_frequency days, Upgrade frequency: $upgrade_frequency days, Allowed updates: $allowed_origins"
     automatic_updates_enabled="Yes (Settings: $auto_updates_details)"
     msg_ok "Automatic security updates configured"
+
   else
     msg_error "Skipped automatic security updates"
   fi
