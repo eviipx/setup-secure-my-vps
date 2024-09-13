@@ -77,6 +77,7 @@ timezone_set="No"
 root_password_set="No"
 system_updated="No"
 netbird_installed="No"
+netbird_ip_range=""
 non_root_user_created="No"
 ssh_key_configured="No"
 ssh_details="No SSH configuration made"
@@ -93,7 +94,7 @@ auto_updates_details="No automatic updates configured"
 # Step 1: Set Hostname (Optional)
 set_hostname() {
   if (whiptail --title "Set Hostname" --yesno "Do you want to set the hostname?" 10 60); then
-    hostname=$(whiptail --inputbox "Enter hostname in the format:\n\n[service].[type].[vendor].[location]\n\nExample: VPS.CTX42.HZR.FI or WEB.CX22.HZR.US" 12 70 3>&1 1>&2 2>&3)
+    hostname=$(whiptail --inputbox "Enter hostname in the format:\n\n[service]-[type]-[vendor]-[location]\n\nExample: VPS-CTX42-HZR-FI or WEB-CX22-HZR-US" 12 70 3>&1 1>&2 2>&3)
     sudo hostnamectl set-hostname "$hostname"
     hostname_set="Yes (Hostname: $hostname)"
     msg_ok "Hostname set to $hostname"
@@ -143,7 +144,10 @@ install_netbird() {
     curl -fsSL https://pkgs.netbird.io/install.sh | sh
     setup_key=$(whiptail --inputbox "Enter your Netbird setup key (Example: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX)" 10 60 3>&1 1>&2 2>&3)
     sudo netbird up --setup-key "$setup_key"
-    msg_ok "Netbird VPN installed and configured"
+    
+    # Prompt for Netbird IP range
+    netbird_ip_range=$(whiptail --inputbox "Enter your Netbird IP range (e.g., 100.92.0.0/16):" 10 60 "100.92.0.0/16" 3>&1 1>&2 2>&3)
+    msg_ok "Netbird VPN installed and configured with IP range $netbird_ip_range"
   else
     msg_error "Skipped Netbird VPN installation"
   fi
@@ -164,27 +168,40 @@ create_user() {
 
 # Step 7: SSH Key for Passwordless Login and Enforce Key-Based Authentication (Optional)
 setup_ssh_key() {
-  if (whiptail --title "SSH Key Login" --yesno "Do you want to enable SSH key for passwordless login and enforce key-based authentication?" 10 60); then
-    ssh_key=$(whiptail --inputbox "Paste your public SSH key here:" 10 60 3>&1 1>&2 2>&3)
-    mkdir -p ~/.ssh
-    echo "$ssh_key" >> ~/.ssh/authorized_keys
-    chmod 600 ~/.ssh/authorized_keys
+  if (whiptail --title "SSH Key Login" --yesno "Do you want to enable SSH key for passwordless login and enforce key-based authentication?" 20 70); then
+    # SSH key prompt with enhanced instructions
+    ssh_key=$(whiptail --inputbox "Please provide your public SSH key for passwordless login.\n\nTip: If you're on a Mac or Linux machine, you can view your public key using:\n\n  cat ~/.ssh/id_rsa.pub  # For RSA key\n  cat ~/.ssh/id_ed25519.pub  # For Ed25519 key\n\nExample output (RSA key):\n  ssh-rsa AAAAB3Nza...rest_of_key... user@hostname\n\nCopy the entire output and paste it here:" 25 70 3>&1 1>&2 2>&3)
+
+    # Prompt for the username to add the SSH key to
+    ssh_user=$(whiptail --inputbox "Enter the username for SSH key setup (e.g., the non-root user you created):" 10 60 3>&1 1>&2 2>&3)
+    
+    # Add SSH key to the specified user's authorized_keys
+    sudo -u "$ssh_user" mkdir -p /home/"$ssh_user"/.ssh
+    echo "$ssh_key" | sudo -u "$ssh_user" tee /home/"$ssh_user"/.ssh/authorized_keys >/dev/null
+    sudo chmod 600 /home/"$ssh_user"/.ssh/authorized_keys
+    sudo chown "$ssh_user":"$ssh_user" /home/"$ssh_user"/.ssh/authorized_keys
 
     msg_info "Configuring SSH"
-    sudo sed -i 's/PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
-    sudo sed -i 's/PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
-    sudo sed -i 's/PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+    # Backup sshd_config
+    sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+
+    # Modify SSH configuration to disable root login and password authentication
+    sudo sed -i 's/^#\?\s*PermitRootLogin\s.*/PermitRootLogin no/' /etc/ssh/sshd_config
+    sudo sed -i 's/^#\?\s*PasswordAuthentication\s.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+    sudo sed -i 's/^#\?\s*PubkeyAuthentication\s.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+
+    # Restart SSH service
     sudo systemctl restart sshd
 
     ssh_details=$(sudo sshd -T | grep -E 'permitrootlogin|pubkeyauthentication|passwordauthentication')
     ssh_key_configured="Yes (SSH settings: $ssh_details)"
-    msg_ok "SSH key added and root login disabled"
+    msg_ok "SSH key added for user $ssh_user and root login disabled"
   else
     ssh_details=$(sudo sshd -T | grep -E 'permitrootlogin|pubkeyauthentication|passwordauthentication')
     ssh_key_configured="No"
     msg_info "Disabling root login but keeping password authentication for SSH"
-    sudo sed -i 's/PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
-    sudo sed -i 's/PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+    sudo sed -i 's/^#\?\s*PermitRootLogin\s.*/PermitRootLogin no/' /etc/ssh/sshd_config
+    sudo sed -i 's/^#\?\s*PubkeyAuthentication\s.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
     sudo systemctl restart sshd
     msg_ok "Root login disabled, but password login enabled"
   fi
@@ -197,11 +214,28 @@ install_fail2ban() {
     sudo systemctl enable fail2ban
     sudo systemctl start fail2ban
 
+    # Create a local jail configuration if it doesn't exist
+    if [ ! -f /etc/fail2ban/jail.local ]; then
+      sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+    fi
+
+    # If Netbird IP range is set, add it to the ignoreip setting
+    if [ -n "$netbird_ip_range" ]; then
+      # Remove any existing ignoreip setting to avoid duplicates
+      sudo sed -i '/^ignoreip/d' /etc/fail2ban/jail.local
+      # Add the ignoreip setting with Netbird IP range
+      sudo sed -i "1iignoreip = 127.0.0.1/8 $netbird_ip_range" /etc/fail2ban/jail.local
+      msg_ok "Netbird IP range $netbird_ip_range added to Fail2Ban ignore list"
+    fi
+
+    # Restart Fail2Ban to apply changes
+    sudo systemctl restart fail2ban
+
     # Extract relevant Fail2Ban settings
-    bantime=$(grep -E '^bantime' /etc/fail2ban/jail.conf | head -n 1 | tr -d "'")
-    findtime=$(grep -E '^findtime' /etc/fail2ban/jail.conf | head -n 1 | tr -d "'")
-    maxretry=$(grep -E '^maxretry' /etc/fail2ban/jail.conf | head -n 1 | tr -d "'")
-    ignoreip=$(grep -E '^ignoreip' /etc/fail2ban/jail.conf | head -n 1 | tr -d "'")
+    bantime=$(grep -E '^bantime' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
+    findtime=$(grep -E '^findtime' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
+    maxretry=$(grep -E '^maxretry' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
+    ignoreip=$(grep -E '^ignoreip' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
 
     fail2ban_details="bantime = $bantime, findtime = $findtime, maxretry = $maxretry, ignoreip = $ignoreip"
     fail2ban_installed="Yes (Settings: $fail2ban_details)"
@@ -227,16 +261,22 @@ install_fail2ban
 
 # Step 9: Install and Configure UFW (Optional)
 install_ufw() {
-  # Step 9.1: Ask if UFW should be installed
-  if (whiptail --title "Uncomplicated Firewall (UFW)" --yesno "Do you want to install and configure UFW?" 10 60); then
+  if (whiptail --title "Uncomplicated Firewall (UFW)" --yesno "Do you want to install and configure Uncomplicated Firewall (UFW)?" 10 60); then
     msg_info "Installing UFW"
     sudo apt install ufw -y
 
-    # Step 9.2: Ask if the firewall should be enabled with default settings
+    # Enable UFW with default settings
     if (whiptail --title "Enable UFW" --yesno "Do you want to enable UFW and apply default settings?\n(Default: Allow OpenSSH, HTTP, and HTTPS)" 10 60); then
       sudo ufw allow OpenSSH
       sudo ufw allow 80/tcp
       sudo ufw allow 443/tcp
+
+      # Allow traffic from Netbird IP range if set
+      if [ -n "$netbird_ip_range" ]; then
+        sudo ufw allow from "$netbird_ip_range"
+        msg_ok "Allowed traffic from Netbird IP range: $netbird_ip_range"
+      fi
+
       sudo ufw enable
       ufw_rules=$(sudo ufw status)
       msg_ok "UFW enabled with default settings (OpenSSH, HTTP, HTTPS)"
@@ -244,8 +284,18 @@ install_ufw() {
       msg_error "UFW was installed but not enabled"
     fi
 
+    # Existing code for adding custom UFW rules
+    while (whiptail --title "Custom Firewall Rule" --yesno "Do you want to add a custom firewall rule?" 10 60); do
+      # Custom rule prompts...
+    done
+
+  else
+    msg_error "Skipped UFW installation"
+  fi
+}
+
     # Step 9.3: Ask for custom firewall rules
-    while (whiptail --title "Custom UFW Rule" --yesno "Do you want to add a custom UFW rule?" 10 60); do
+    while (whiptail --title "Custom Firewall Rule" --yesno "Do you want to add a custom firewall rules?" 10 60); do
       port=$(whiptail --inputbox "Enter the port number:" 10 60 3>&1 1>&2 2>&3)
       protocol=$(whiptail --menu "Select protocol:" 10 60 2 "TCP" "" "UDP" "" 3>&1 1>&2 2>&3)
       ip_range=$(whiptail --inputbox "Allow traffic from (e.g., 0.0.0.0/0 for anywhere, or specific IP range):" 10 60 3>&1 1>&2 2>&3)
@@ -281,9 +331,9 @@ install_webmin
 # Step 11: Install Optional Tools (Optional)
 install_optional_tools() {
   if (whiptail --title "Optional Tools" --yesno "Do you want to install the following optional tools?\n\n\
-1. btop: A system resource monitor.\n\
-2. speedtest-cli: A tool to check network speed.\n\
-3. fastfetch: A system information tool." 15 70); then
+1. 📊 **btop**: A system resource monitor.\n\
+2. ⚡ **speedtest-cli**: A tool to check network speed.\n\
+3. 🔍 **fastfetch**: A system information tool." 15 75); then
     msg_info "Installing optional tools"
 
     # Install btop and speedtest-cli
@@ -306,19 +356,27 @@ install_optional_tools
 setup_automatic_updates() {
   if (whiptail --title "Configuring Unattended-Upgrades" --yesno "Enable automatic download and installation of stable security updates?" 10 60); then
     sudo apt install unattended-upgrades -y
-    sudo dpkg-reconfigure --priority=low unattended-upgrades
 
-    # Extract relevant Unattended-Upgrade settings
-    auto_reboot=$(grep -E '^Unattended-Upgrade::Automatic-Reboot' /etc/apt/apt.conf.d/50unattended-upgrades | head -n 1 | tr -d "'")
+    msg_info "Configuring unattended-upgrades"
 
-    # Extract update frequency from 10periodic
-    update_frequency=$(grep -E 'APT::Periodic::Update-Package-Lists' /etc/apt/apt.conf.d/10periodic | cut -d '"' -f2)
-    upgrade_frequency=$(grep -E 'APT::Periodic::Unattended-Upgrade' /etc/apt/apt.conf.d/10periodic | cut -d '"' -f2)
+    # Enable automatic updates by creating or modifying /etc/apt/apt.conf.d/20auto-upgrades
+    sudo bash -c 'cat > /etc/apt/apt.conf.d/20auto-upgrades <<EOF
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+EOF'
 
-    # Extract type of updates from 50unattended-upgrades
-    allowed_origins=$(grep -E 'Unattended-Upgrade::Allowed-Origins' /etc/apt/apt.conf.d/50unattended-upgrades | grep -oE '".*"' | tr -d '"')
+    # Optionally, configure automatic reboot if required
+    sudo sed -i 's|^//Unattended-Upgrade::Automatic-Reboot "false";|Unattended-Upgrade::Automatic-Reboot "true";|' /etc/apt/apt.conf.d/50unattended-upgrades
 
-    auto_updates_details="Automatic-Reboot = $auto_reboot, Check frequency: Update = $update_frequency days, Upgrade = $upgrade_frequency days, Allowed updates: $allowed_origins"
+    # Extract relevant Unattended-Upgrade settings for summary
+    auto_reboot=$(grep -E '^Unattended-Upgrade::Automatic-Reboot' /etc/apt/apt.conf.d/50unattended-upgrades | head -n 1 | tr -d '";')
+    update_frequency=$(grep -E 'APT::Periodic::Update-Package-Lists' /etc/apt/apt.conf.d/20auto-upgrades | cut -d '"' -f2)
+    upgrade_frequency=$(grep -E 'APT::Periodic::Unattended-Upgrade' /etc/apt/apt.conf.d/20auto-upgrades | cut -d '"' -f2)
+
+    # Extract allowed origins (types of updates)
+    allowed_origins=$(grep -E 'Unattended-Upgrade::Allowed-Origins' /etc/apt/apt.conf.d/50unattended-upgrades | grep -oE '".*";' | tr -d '";')
+
+    auto_updates_details="Automatic-Reboot = $auto_reboot, Update frequency: $update_frequency days, Upgrade frequency: $upgrade_frequency days, Allowed updates: $allowed_origins"
     automatic_updates_enabled="Yes (Settings: $auto_updates_details)"
     msg_ok "Automatic security updates configured"
   else
@@ -330,22 +388,37 @@ setup_automatic_updates
 
 # Final Summary
 display_summary() {
+  GREEN='\033[1;32m'
+  RED='\033[1;31m'
+  BOLD='\033[1m'
+  NC='\033[0m' # No Color
+
   echo ""
   echo "======================="
   echo "VPS Setup Summary"
   echo "======================="
-  echo "Hostname set: $hostname_set"
-  echo "Time zone set: $timezone_set"
-  echo "Root password set: $root_password_set"
-  echo "System updated: $system_updated"
-  echo "Netbird VPN installed: $netbird_installed"
-  echo "Non-root user created: $non_root_user_created"
-  echo "SSH key configured: $ssh_key_configured"
-  echo "Fail2Ban installed: $fail2ban_installed"
-  echo "UFW installed: $ufw_installed"
-  echo "Webmin installed: $webmin_installed (URL: $webmin_url)"
-  echo "Optional tools installed: $optional_tools_installed"
-  echo "Automatic security updates enabled: $automatic_updates_enabled"
+
+  # Function to format YES/NO with colors and symbols
+  format_status() {
+    if [[ $1 == "Yes"* ]]; then
+      echo -e "✅ ${BOLD}${GREEN}YES${NC} $2"
+    else
+      echo -e "❌ ${BOLD}${RED}NO${NC} $2"
+    fi
+  }
+
+  echo -e "Hostname set:          $(format_status \"$hostname_set\")"
+  echo -e "Time zone set:         $(format_status \"$timezone_set\")"
+  echo -e "Root password set:     $(format_status \"$root_password_set\")"
+  echo -e "System updated to latest version: $(format_status \"$system_updated\")"
+  echo -e "Netbird VPN installed: $(format_status \"$netbird_installed\")"
+  echo -e "Non-root user created: $(format_status \"$non_root_user_created\")"
+  echo -e "SSH key configured:    $(format_status \"$ssh_key_configured\")"
+  echo -e "Fail2Ban installed:    $(format_status \"$fail2ban_installed\")"
+  echo -e "UFW installed:         $(format_status \"$ufw_installed\")"
+  echo -e "Webmin installed:      $(format_status \"$webmin_installed\")"
+  echo -e "Optional tools installed: $(format_status \"$optional_tools_installed\")"
+  echo -e "Automatic security updates enabled: $(format_status \"$automatic_updates_enabled\")"
   echo ""
 }
 
