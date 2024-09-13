@@ -440,8 +440,6 @@ EOF'
   fi
 }
 
-setup_automatic_updates
-
 # Final Summary
 display_summary() {
   GREEN='\033[1;32m'
@@ -478,6 +476,24 @@ display_summary() {
   echo ""
 }
 
-# Call the summary function at the end of the script
+# Main script execution starts here
+check_root
+header_info
+welcome_screen
+continue_prompt
+set_hostname
+set_timezone
+set_root_password
+update_system
+install_netbird
+create_user
+setup_ssh_key
+install_fail2ban
+install_ufw
+install_webmin
+install_optional_tools
+setup_automatic_updates
+
+# Ensure the summary is called at the end of the script
 msg_ok "VPS Quick Setup is complete!"
 display_summary
