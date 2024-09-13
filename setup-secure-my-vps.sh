@@ -257,7 +257,7 @@ install_fail2ban() {
       return 1 # Exit the function if Fail2Ban fails to restart
     fi
 
-    # Add more debug information
+    # Add more debug information for settings extraction
     msg_info "Extracting Fail2Ban settings for summary"
 
     # Extract relevant Fail2Ban settings for summary
@@ -265,6 +265,9 @@ install_fail2ban() {
     findtime=$(grep -E '^findtime' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
     maxretry=$(grep -E '^maxretry' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
     ignoreip=$(grep -E '^ignoreip' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
+
+    # Debug: Print the extracted values to ensure they are captured
+    echo "DEBUG: bantime=$bantime, findtime=$findtime, maxretry=$maxretry, ignoreip=$ignoreip"
 
     if [ -z "$bantime" ] || [ -z "$findtime" ] || [ -z "$maxretry" ] || [ -z "$ignoreip" ]; then
       msg_error "Failed to extract Fail2Ban settings. Please check /etc/fail2ban/jail.local."
