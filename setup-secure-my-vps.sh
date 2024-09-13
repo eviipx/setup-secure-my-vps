@@ -408,7 +408,6 @@ APT::Periodic::Unattended-Upgrade "1";
 EOF'
     else
       msg_error "/etc/apt/apt.conf.d/20auto-upgrades not found, skipping configuration"
-      return 1
     fi
 
     if [ -f /etc/apt/apt.conf.d/50unattended-upgrades ]; then
@@ -439,13 +438,13 @@ EOF'
     automatic_updates_enabled="Yes (Settings: $auto_updates_details)"
     msg_ok "Automatic security updates configured"
 
-    # Debugging step to see if the script reaches here
-    echo "DEBUG: Exiting setup_automatic_updates"
-
-    return 0  # Ensures the function exits cleanly
+    # Add a clear message that the function has completed
+    msg_ok "Setup of automatic updates complete."
+    return 0  # Ensure the function exits cleanly
 
   else
     msg_error "Skipped automatic security updates"
+    return 0  # Ensure clean exit even when skipped
   fi
 }
 
@@ -507,5 +506,5 @@ setup_automatic_updates
 msg_ok "VPS Quick Setup is complete!"
 display_summary
 
-# Debugging to see if the script reaches the end
+# Final debug message to confirm script reaches the end
 echo "DEBUG: Script execution completed"
