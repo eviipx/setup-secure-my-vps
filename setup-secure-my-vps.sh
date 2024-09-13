@@ -385,9 +385,7 @@ setup_automatic_updates() {
     msg_info "Installing unattended-upgrades"
     sudo apt install unattended-upgrades -y
 
-    msg_info "Configuring unattended-upgrades"
-
-    # Check if the unattended-upgrades package is already installed
+    # Check if unattended-upgrades is already installed
     if dpkg-query -W -f='${Status}' unattended-upgrades 2>/dev/null | grep -q "ok installed"; then
       msg_ok "unattended-upgrades is already installed"
     else
@@ -395,14 +393,35 @@ setup_automatic_updates() {
       sudo apt install unattended-upgrades -y
     fi
 
-    # Enable automatic updates by creating or modifying /etc/apt/apt.conf.d/20auto-upgrades
-    sudo bash -c 'cat > /etc/apt/apt.conf.d/20auto-upgrades <<EOF
+    msg_info "Configuring unattended-upgrades"
+
+    # Check if the configuration files exist and make necessary changes
+    if [ -f /etc/apt/apt.conf.d/20auto-upgrades ]; then
+      msg_info "Modifying /etc/apt/apt.conf.d/20auto-upgrades"
+      sudo bash -c 'cat > /etc/apt/apt.conf.d/20auto-upgrades <<EOF
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 EOF'
+    else
+      msg_error "/etc/apt/apt.conf.d/20auto-upgrades not found, skipping configuration"
+      return 1
+    fi
 
-    # Optionally, configure automatic reboot if required
-    sudo sed -i 's|^//Unattended-Upgrade::Automatic-Reboot "false";|Unattended-Upgrade::Automatic-Reboot "true";|' /etc/apt/apt.conf.d/50unattended-upgrades
+    if [ -f /etc/apt/apt.conf.d/50unattended-upgrades ]; then
+      msg_info "Configuring auto-reboot in /etc/apt/apt.conf.d/50unattended-upgrades"
+      sudo sed -i 's|^//Unattended-Upgrade::Automatic-Reboot "false";|Unattended-Upgrade::Automatic-Reboot "true";|' /etc/apt/apt.conf.d/50unattended-upgrades
+    else
+      msg_error "/etc/apt/apt.conf.d/50unattended-upgrades not found, skipping reboot configuration"
+    fi
+
+    # Verify that the unattended-upgrades service is running
+    msg_info "Checking unattended-upgrades service status"
+    if sudo systemctl is-active --quiet unattended-upgrades; then
+      msg_ok "unattended-upgrades service is active"
+    else
+      msg_info "Starting unattended-upgrades service"
+      sudo systemctl start unattended-upgrades
+    fi
 
     # Extract relevant Unattended-Upgrade settings for summary
     auto_reboot=$(grep -E '^Unattended-Upgrade::Automatic-Reboot' /etc/apt/apt.conf.d/50unattended-upgrades | head -n 1 | tr -d '";')
