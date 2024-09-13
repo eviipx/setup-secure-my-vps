@@ -237,6 +237,7 @@ install_fail2ban() {
 
     # If Netbird IP range is set, add it to the ignoreip setting
     if [ -n "$netbird_ip_range" ]; then
+      msg_info "Updating Fail2Ban configuration with Netbird IP range"
       # Remove any existing ignoreip setting to avoid duplicates
       sudo sed -i '/^ignoreip/d' /etc/fail2ban/jail.local
       # Add the ignoreip setting with Netbird IP range
@@ -244,7 +245,7 @@ install_fail2ban() {
       msg_ok "Netbird IP range $netbird_ip_range added to Fail2Ban ignore list"
     fi
 
-    # Reload or restart Fail2Ban to apply changes
+    # Restart Fail2Ban to apply changes
     msg_info "Restarting Fail2Ban service to apply configuration changes"
     sudo systemctl restart fail2ban
 
@@ -253,7 +254,11 @@ install_fail2ban() {
       msg_ok "Fail2Ban restarted successfully"
     else
       msg_error "Fail2Ban failed to restart. Please check logs."
+      return 1 # Exit the function if Fail2Ban fails to restart
     fi
+
+    # Add more debug information
+    msg_info "Extracting Fail2Ban settings for summary"
 
     # Extract relevant Fail2Ban settings for summary
     bantime=$(grep -E '^bantime' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
@@ -261,9 +266,15 @@ install_fail2ban() {
     maxretry=$(grep -E '^maxretry' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
     ignoreip=$(grep -E '^ignoreip' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
 
-    fail2ban_details="bantime = $bantime, findtime = $findtime, maxretry = $maxretry, ignoreip = $ignoreip"
-    fail2ban_installed="Yes (Settings: $fail2ban_details)"
-    msg_ok "Fail2Ban installed and configured"
+    if [ -z "$bantime" ] || [ -z "$findtime" ] || [ -z "$maxretry" ] || [ -z "$ignoreip" ]; then
+      msg_error "Failed to extract Fail2Ban settings. Please check /etc/fail2ban/jail.local."
+      return 1
+    else
+      fail2ban_details="bantime = $bantime, findtime = $findtime, maxretry = $maxretry, ignoreip = $ignoreip"
+      fail2ban_installed="Yes (Settings: $fail2ban_details)"
+      msg_ok "Fail2Ban installed and configured"
+    fi
+
   else
     msg_error "Skipped Fail2Ban installation"
   fi
