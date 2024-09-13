@@ -435,6 +435,9 @@ EOF'
     automatic_updates_enabled="Yes (Settings: $auto_updates_details)"
     msg_ok "Automatic security updates configured"
 
+    # Debugging step to see if the script reaches here
+    echo "DEBUG: Exiting setup_automatic_updates"
+
   else
     msg_error "Skipped automatic security updates"
   fi
@@ -497,3 +500,6 @@ setup_automatic_updates
 # Ensure the summary is called at the end of the script
 msg_ok "VPS Quick Setup is complete!"
 display_summary
+
+# Debugging to see if the script reaches the end
+echo "DEBUG: Script execution completed"
