@@ -260,22 +260,29 @@ install_fail2ban() {
     # Add more debug information for settings extraction
     msg_info "Extracting Fail2Ban settings for summary"
 
-    # Extract relevant Fail2Ban settings for summary
-    bantime=$(grep -E '^bantime' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
-    findtime=$(grep -E '^findtime' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
-    maxretry=$(grep -E '^maxretry' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
-    ignoreip=$(grep -E '^ignoreip' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
+    # Ensure that jail.local has the expected settings before proceeding
+    if grep -q "^bantime" /etc/fail2ban/jail.local && grep -q "^findtime" /etc/fail2ban/jail.local && grep -q "^maxretry" /etc/fail2ban/jail.local && grep -q "^ignoreip" /etc/fail2ban/jail.local; then
+      # Extract relevant Fail2Ban settings for summary
+      bantime=$(grep -E '^bantime' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
+      findtime=$(grep -E '^findtime' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
+      maxretry=$(grep -E '^maxretry' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
+      ignoreip=$(grep -E '^ignoreip' /etc/fail2ban/jail.local | head -n 1 | tr -d "'")
 
-    # Debug: Print the extracted values to ensure they are captured
-    echo "DEBUG: bantime=$bantime, findtime=$findtime, maxretry=$maxretry, ignoreip=$ignoreip"
+      # Debug: Print the extracted values to ensure they are captured
+      echo "DEBUG: bantime=$bantime, findtime=$findtime, maxretry=$maxretry, ignoreip=$ignoreip"
 
-    if [ -z "$bantime" ] || [ -z "$findtime" ] || [ -z "$maxretry" ] || [ -z "$ignoreip" ]; then
-      msg_error "Failed to extract Fail2Ban settings. Please check /etc/fail2ban/jail.local."
-      return 1
+      # Ensure the variables are not empty
+      if [ -z "$bantime" ] || [ -z "$findtime" ] || [ -z "$maxretry" ] || [ -z "$ignoreip" ]; then
+        msg_error "Failed to extract Fail2Ban settings. The settings were found in jail.local but are invalid."
+        return 1
+      else
+        fail2ban_details="bantime = $bantime, findtime = $findtime, maxretry = $maxretry, ignoreip = $ignoreip"
+        fail2ban_installed="Yes (Settings: $fail2ban_details)"
+        msg_ok "Fail2Ban installed and configured"
+      fi
     else
-      fail2ban_details="bantime = $bantime, findtime = $findtime, maxretry = $maxretry, ignoreip = $ignoreip"
-      fail2ban_installed="Yes (Settings: $fail2ban_details)"
-      msg_ok "Fail2Ban installed and configured"
+      msg_error "Required settings not found in /etc/fail2ban/jail.local. Please check the configuration."
+      return 1
     fi
 
   else
